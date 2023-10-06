@@ -1,0 +1,29 @@
+# Define the path to your folder containing CSV files
+$folderPath = &quot;C:\Users\RyanDavidson\OneDrive - ConData\Desktop\test commands&quot;
+# Get a list of all CSV files in the folder
+$csvFiles = Get-ChildItem -Path $folderPath -Filter *.csv
+# Loop through each CSV file
+foreach ($csvFile in $csvFiles) {
+# Load the CSV data
+$csvData = Import-Csv -Path $csvFile.FullName
+# Create an array to store the modified data
+$newCsvData = @()
+# Loop through each row in the CSV
+foreach ($row in $csvData) {
+# Split the values in column A by a semicolon
+$columnAValues = $row.&#39;origin locations&#39; -split &#39;;&#39;
+# Expand values from column A, B, and C with the desired column order
+foreach ($valueA in $columnAValues) {
+$newRow = New-Object PSObject -Property @{
+&#39;origin locations&#39; = $valueA
+&#39;destination location&#39; = $row.&#39;destination location&#39;
+&#39;converted zone&#39; = $row.&#39;converted zone&#39;
+}
+# Add the new row to the modified data array
+$newCsvData += $newRow
+}
+}
+# Export the modified data back to the original CSV file, overwriting it
+$newCsvData | Select-Object &#39;origin locations&#39;, &#39;destination location&#39;, &#39;converted zone&#39; | Export-Csv -Path
+$csvFile.FullName -NoTypeInformation -Delimiter &#39;,&#39; -Force
+Write-Host &quot;Processed and updated $($csvFile.Name)&quot;
