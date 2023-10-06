@@ -1,0 +1,33 @@
+rom pyspark.sql import SparkSession
+
+def main():
+    # Initialize the Spark session
+    spark = SparkSession.builder \
+        .appName("MSSQL Extraction") \
+        .getOrCreate()
+    
+    # Define the connection properties
+    jdbc_url = "jdbc:sqlserver://wesson;databaseName=tnl_reporting"
+    connection_properties = {
+        "user": "rdavidson",
+        "password": "RD!new22@",
+        "driver": "com.microsoft.sqlserver.jdbc.SQLServerDriver"
+    }
+    
+    # Read the data from SQL Server
+    query = "(SELECT top 50 * FROM tnl_reporting.dbo.warehouse_shipment_history_vw) AS tmp"
+    df = spark.read.jdbc(url=jdbc_url, table=query, properties=connection_properties)
+    
+    # Write data to an Excel file
+    excel_path = "/path/to/destination/excel_file.xlsx"
+    df.write.format("com.crealytics.spark.excel") \
+        .option("dataAddress", "Sheet1!A1") \
+        .option("useHeader", "true") \
+        .mode("overwrite") \
+        .save(excel_path)
+
+    # Stop the Spark session
+    spark.stop()
+
+if __name__ == "__main__":
+    main()
