@@ -1,0 +1,32 @@
+import pyodbc
+
+ssms_connection_string = "Driver={SQL Server};Server=YourServerName;Database=YourDatabase;Uid=XXX;Pwd=XXX;"
+azure_connection_string = "Driver={ODBC Driver 17 for SQL Server};Server=YourAzureServerName.database.windows.net;Database=YourAzureDatabase;Uid=XXX;Pwd=XXX;"
+
+try:
+    ssms_conn = pyodbc.connect(ssms_connection_string)
+    azure_conn = pyodbc.connect(azure_connection_string)
+except Exception as e:
+    print("Error connecting to databases:", e)
+    exit(1)
+
+try:
+    with ssms_conn.cursor() as ssms_cursor:
+        ssms_cursor.execute("SELECT * FROM xxxxxx.dbo.warehouse_shipment_history_vw
+WHERE parentid = 'xxxxxx'
+    AND shipdate BETWEEN '2023-01-01' AND '2023-03-20'")
+        data_to_transfer = ssms_cursor.fetchall()
+
+    with azure_conn.cursor() as azure_cursor:
+        azure_cursor.execute("CREATE TABLE IF NOT EXISTS XXXXXXXXXX (ID INT, Name NVARCHAR(255))")
+
+        azure_cursor.executemany("INSERT INTO XXXXXXXXXX (ID, Name) VALUES (?, ?)", data_to_transfer)
+        azure_conn.commit()
+
+    print("Data pipeline created successfully!")
+
+except Exception as e:
+    print("Error creating the data pipeline:", e)
+finally:
+    ssms_conn.close()
+    azure_conn.close()
