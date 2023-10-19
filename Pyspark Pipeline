@@ -1,4 +1,4 @@
-rom pyspark.sql import SparkSession
+from pyspark.sql import SparkSession
 
 def main():
     # Initialize the Spark session
