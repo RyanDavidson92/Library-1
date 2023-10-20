@@ -1,0 +1,31 @@
+import pyodbc
+import pandas as pd
+from datetime import datetime
+
+server = 'XXXXX'
+database = 'tnl_reporting'
+username = 'XXXXX'
+password = 'XXXXX'
+
+query = """
+    SELECT *
+    FROM tnl_reporting.dbo.warehouse_shipment_history_vw
+    WHERE parentid = '10384'
+    AND shipdate BETWEEN '2023-01-01' AND '2023-06-20'
+"""
+
+conn = pyodbc.connect('DRIVER={SQL Server};'
+                      f'SERVER={server};'
+                      f'DATABASE={database};'
+                      f'UID={username};'
+                      f'PWD={password}')
+
+df = pd.read_sql(query, conn)
+
+csv_file_path = r'C:\Users\RyanDavidson\OneDrive - ConData\Desktop\A01.csv'
+
+df.to_csv(csv_file_path, index=False)
+
+conn.close()
+
+print(f"Exported to {csv_file_path}")
