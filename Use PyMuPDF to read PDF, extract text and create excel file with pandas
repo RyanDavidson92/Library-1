@@ -1,0 +1,84 @@
+
+
+import os
+import fitz  # PyMuPDF
+import pandas as pd
+import re
+
+def extract_charges(pdf_path):
+    charges = {}
+    with fitz.open(pdf_path) as doc:
+        total_pages = doc.page_count
+
+       
+        charge_list = [
+            "Accessible Dangerous Goods",
+            "Additional Handling Charge",
+            "Additional Handling Charge",
+            "Additional Handling Charge",
+            "Additional Handling Charge",
+            "Additional Handling Charge, Non-Stackable",
+            "Additional Handling Surcharge - Packaging (Express)",
+            "Additional Handling",
+            "Address Correction",
+            "Adult Signature Required",
+            "Adult Signature Required",
+            "Delivery Area Surcharge",
+            "Delivery Area Surcharge",
+            "Delivery Area Surcharge",
+            "Delivery Area Surcharge",
+            "Delivery Area Surcharge Ground",
+            "Delivery Area Surcharge",
+            "Direct Signature Required",
+            "Direct Signature Required",
+            "Hazardous Material (Ground)",
+            "Inaccessible Dangerous Goods",
+            "Indirect Signature Required",
+            "Indirect Signature Required",
+            "Out of Delivery Area",
+            "Remote",
+            "Oversize Extra Service Fee",
+            "Oversize Package",
+            "Overweight",
+            "Recipient Address Correction",
+            "Residential Delivery",
+            "Residential Delivery Fee",
+            "Residential Delivery Fee",
+            "Residential Delivery",
+            "Return E-mail Label Surcharge",
+            "Return Online Label Surcharge",
+            "Return Printed Label Surcharge",
+            "Saturday Pickup",
+            "Unauthorized Oversize",
+            "Weekly Service",
+            "Saturday Delivery"
+        ]
+
+        for page_num in range(total_pages):
+            page = doc[page_num]
+            text = page.get_text()
+
+            for charge in charge_list:
+                
+                pattern = rf"{re.escape(charge)}\D+(\d+\.\d+)"
+                match = re.search(pattern, text, re.IGNORECASE)
+                
+                if match:
+                    charge_value = match.group(1)
+                    charges[charge] = charge_value
+
+    return charges
+
+def save_to_excel(charges):
+    excel_path = r"C:\Users\RyanDavidson\OneDrive - XXXXXXX\Documents\TextPDFtoExcel.xlsx"
+
+    df = pd.DataFrame(list(charges.items()), columns=['Charge Type', 'Price'])
+    df.to_excel(excel_path, index=False)
+
+if __name__ == "__main__":
+    pdf_path = r"C:\Users\RyanDavidson\Downloads\FedEx Canada 2024 Service Guide.pdf"
+
+    charges = extract_charges(pdf_path)
+    save_to_excel(charges)
+
+    print("Charges extracted and saved to Excel file.")
