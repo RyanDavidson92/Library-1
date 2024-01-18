@@ -1,0 +1,23 @@
+
+import os
+import pandas as pd
+
+folder_path = r"C:\Users\RyanDavidson\OneDrive - XXXX\Desktop\UPS Canada 2024 List Rates"
+
+# Output
+output_excel_path = os.path.join(folder_path, '2024 UPS LIST RATES COMBINED.xlsx')
+
+# Get list of all files in the folder
+all_files = [file for file in os.listdir(folder_path) if os.path.isfile(os.path.join(folder_path, file))]
+
+# Initialize an Excel writer to save multiple sheets
+with pd.ExcelWriter(output_excel_path, engine='xlsxwriter') as writer:
+    # Loop through each file and create a new sheet for each
+    for file_name in all_files:
+        file_path = os.path.join(folder_path, file_name)
+        if file_path.endswith('.csv'):  # Only consider CSV files
+            sheet_name = os.path.splitext(file_name)[0]  # Use the file name as the sheet name
+            df = pd.read_csv(file_path, encoding='latin1')  # Specify the encoding if needed
+            df.to_excel(writer, sheet_name=sheet_name, index=False)
+
+print(f"Combined files saved to: {output_excel_path}")
