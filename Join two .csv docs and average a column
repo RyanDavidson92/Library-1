@@ -1,0 +1,16 @@
+
+
+import pandas as pd
+
+# Read the CSV files into DataFrames
+Test_X_Table = pd.read_csv(r'C:\Users\RyanDavidson\OneDrive - XXXX\Documents\Test Y Table Python.csv')
+Test_Y_Table = pd.read_csv(r'C:\Users\RyanDavidson\OneDrive - XXXX\Documents\Test X Table Python.csv')
+
+# Perform the join on 'controlno' and 'childid'
+merged_df = pd.merge(Test_X_Table, Test_Y_Table, on=['ControlNo', 'ChildID'])  ## column names are case sensitive. 
+
+# Calculate the average of 'BaseChargeAmount_Discounted' from the Y table
+avg_base_charge = merged_df.groupby(['ControlNo', 'ChildID', 'CompanyName', 'Carrier'])['BaseChargeAmount_Discounted'].mean().reset_index()
+
+# Display the resulting DataFrame
+print(avg_base_charge)
