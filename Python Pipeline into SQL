@@ -5,7 +5,7 @@ import pandas as pd
 import sqlalchemy
 
 
-file_path = r"C:\Users\RyanDavidson\OneDrive - ConData\Documents\New jasper converted rate sheet - python test.xlsx"
+file_path = r"C:\Users\RyanDavidson\OneDrive - xxxxxx\Documents\New xxxxx converted rate sheet - python test.xlsx"
 
 
 df = pd.read_excel(file_path, sheet_name="Next Day Air", header=None, usecols="C:M", skiprows=8, nrows=155)  #### adjust cell reference here. 
@@ -25,10 +25,10 @@ flattened_df = pd.DataFrame({
 })
 
 
-server = '10.6.0.7'
-database = 'analytics'
-username = 'rdavidson'
-password = 'RD!new22!'
+server = 'xxxx.6.0.xxxx'
+database = 'xxxxxx'
+username = 'xxxxxx'
+password = 'xxxxxx'
 
 
 engine = sqlalchemy.create_engine(f"mssql+pyodbc://{username}:{password}@{server}/{database}?driver=ODBC+Driver+17+for+SQL+Server")
