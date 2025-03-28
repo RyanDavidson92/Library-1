@@ -1,0 +1,223 @@
+
+
+import os
+from datetime import datetime
+import fnmatch
+from typing import List, Dict, Optional, Tuple
+from pyspark.sql.functions import col, lit,sha2, concat_ws, to_timestamp,row_number,when
+from pyspark.sql import Window
+from databricks.source.common import constants
+from databricks.source.wddi.utils.wddi_common_util import CommonUtil
+from databricks.source.wddi.utils.date_time_util import DateTimeUtil
+
+class RawToBronzeLoader:
+    """
+    RawToBronzeLoader is responsible for loading raw data from a source system into a bronze layer in Delta Lake. 
+    It handles the extraction of files from the source, applies schema validation, 
+    performs transformations such as column renaming and deduplication, and writes the data 
+    to a Delta table in the bronze layer. This class supports both full and incremental loading of data.
+
+    Key responsibilities:
+    - Determine the source path for raw data based on system type and instance.
+    - Validate the folder names to check if they represent valid date formats.
+    - Find and filter matching data files to load into the bronze table.
+    - Apply schema validation and transformations based on the table configuration.
+    - Perform a Delta merge operation to handle insertions, updates, and deletions based on existing data.
+    - Support full and incremental loading of data.
+    """
+
+    def __init__(
+        self, 
+        spark,
+        dbutils,
+        full_load: bool, 
+        input_path: str, 
+        bronze_path: str,
+        read_format: str, 
+        table_name: str,
+        source_name: str, 
+        tracker
+    ):
+        """Initialize the loader with necessary parameters."""
+        self.spark = spark
+        self.dbutils = dbutils
+        self.full_load = full_load
+        self.input_path = input_path
+        self.bronze_path = bronze_path
+        self.read_format = read_format
+        self.table_name = table_name
+        self.source_name = source_name
+        self.tracker = tracker
+        self.instance = None
+        self.current_timestmp, self.current_time_with_zone = DateTimeUtil.get_current_utc_time(
+            'UTC', constants.TIME_FORMAT_WITH_OUT_ZONE, constants.TIME_FRMT_WITH_ZONE
+        )
+        self.current_dt = DateTimeUtil.get_current_date(constants.DATE_FORMAT)
+
+    def get_base_path(self, system_type: str, instance: Optional[str] = None) -> str:
+        """Construct base path for raw data based on system type and instance."""
+        return f"{self.input_path}/{system_type}/{instance}/" if instance else f"{self.input_path}/{system_type}/"
+
+    def is_valid_date_folder(self,folder_name: str) -> bool:
+        """Check if the folder name is a valid date in 'YYYY-MM-DD' format."""
+        try:
+            datetime.strptime(folder_name, constants.DATE_FORMAT)
+            return True
+        except ValueError:
+            return False
+
+    def list_date_folders(self, base_path: str, load_dt: Optional[str], instance: Optional[str] = None) -> List[str]:
+        """List and return sorted date folders, or specific dates if load_dt is provided."""
+        date_folders = []
+
+        if load_dt:
+            if self.is_valid_date_folder(load_dt):
+                return [load_dt]
+            else:
+                self.tracker.logger.info(f"Invalid date format in load_dt: {load_dt}. Expected 'YYYY-MM-DD'.")
+                raise ValueError(f"Invalid date format in load_dt for instance '{instance}': {load_dt}. Expected 'YYYY-MM-DD'.")
+
+        try:
+            folders = self.dbutils.fs.ls(base_path)
+        except Exception as e:
+            self.tracker.logger.info(f"Error accessing base path '{base_path}': {e}")
+            return date_folders
+
+        for folder in folders:
+            folder_name = os.path.basename(folder.path.rstrip('/'))
+            if self.is_valid_date_folder(folder_name):
+                date_folders.append(folder_name)
+
+        return sorted(date_folders)
+
+
+    def find_files_recursive(self, current_path: str, system_type: str, table_name: str, check_pattern: bool = False) -> List[str]:
+        """
+        Recursively search for files or folders matching the table name.
+        If a directory with the name table_name is found, return its path directly to avoid reading individual files.
+        If table_name is matched as a file pattern, list all files matching that pattern.
+        """
+        files_and_folders = self.dbutils.fs.ls(current_path)
+    
+        matching_files_or_folders = []
+
+        for item in files_and_folders:
+            # Check if the item is a directory and matches the table_name
+            if item.isDir() and table_name.lower() in item.path.lower():
+                return [item.path]
+
+            elif item.isDir():
+                matching_files_or_folders.extend(self.find_files_recursive(item.path, system_type, table_name, check_pattern))
+        
+            else:
+                # If it's a file, check if it matches the pattern or name
+                file_name = os.path.basename(item.path)
+                if check_pattern and system_type == 'blueyonder':
+                    # Apply pattern matching for Blueyonder system type
+                    table_pattern = f"{table_name.upper()}_*.*"
+                    if fnmatch.fnmatch(file_name, table_pattern):
+                        matching_files_or_folders.append(item.path)
+                elif table_name.lower() in file_name.lower():
+                    matching_files_or_folders.append(item.path)
+    
+        return matching_files_or_folders
+
+    def process_files(self, system_type: str, date_folder: str, instance: Optional[str] = None) -> List[str]:
+        """Process files within the date folder, checking patterns based on system type."""
+        folder_path = os.path.join(self.get_base_path(system_type, instance), date_folder)
+        check_pattern = system_type == 'blueyonder'
+        return self.find_files_recursive(folder_path, system_type, self.table_name, check_pattern)
+
+    def load_to_bronze(self, matching_files: List[str], date_folder: str, tbl_detail_config: Dict[str, any], delete_column: str,instance) -> str:
+        """Load matched files to bronze table and return date folder."""
+        if not matching_files:
+            return None
+        
+        self.tracker.logger.info(f"config details for table {self.table_name} is {tbl_detail_config}")
+        
+        table_schema = CommonUtil.get_schema_loader(self.source_name,self.table_name,self.tracker,tbl_detail_config,instance)
+        df = CommonUtil.read_files(self.spark, matching_files[0], self.read_format)
+        rename_col_dict = tbl_detail_config.get("colRenameMap", {})
+
+        if rename_col_dict:
+            df = df.selectExpr(*[f"{col} as {rename_col_dict.get(col, col)}" for col in df.columns])
+
+        table_name = tbl_detail_config.get('tableRename', self.table_name)
+        drop_cols_set = {col.lower() for col in tbl_detail_config.get("dropCols", [])}
+
+        source_df = CommonUtil.validate_and_apply_schema(df, table_schema, drop_cols_set, self.source_name, self.tracker,instance)
+
+        ### Construct output path ###
+        base_path = f"{self.bronze_path}/{self.source_name}/"
+        if self.source_name == 'blueyonder' and self.instance == 'WLM':
+            output_path = f"{self.bronze_path}/{self.instance.lower()}/{self.source_name}/{table_name}/"
+        elif self.instance:
+            output_path = f"{base_path}/{self.instance}/{table_name}/"
+        else:
+            output_path = f"{base_path}/{table_name}/"
+
+        self.tracker.logger.info(f"Writing {table_name} data to path: {output_path}")
+
+        num_update_rows, num_deleted_rows, num_inserted_rows, num_affected_rows = CommonUtil.delta_merge_process(
+            self.spark, source_df, output_path, self.full_load, table_name, tbl_detail_config,
+            self.current_timestmp, 'bronze_load', table_schema,self.tracker, delete_column
+        )
+
+        self.tracker.logger.info(f"num_update_rows: {num_update_rows}, num_deleted_rows: {num_deleted_rows}, "
+                                 f"num_inserted_rows: {num_inserted_rows}, num_affected_rows: {num_affected_rows} for table {self.table_name}")
+
+        return date_folder
+
+    def execute(self, full_load: bool = False, instance_lst: Optional[List[str]] = None,
+                tbl_detail_config: Optional[Dict[str, str]] = None,delete_column: str = "delete_flag",
+                load_dt: Optional[str] = None) -> Dict[str, str]:
+        """Execute loading process for each instance and return data with dates."""
+        self.tracker.start(f"Loading data to bronze layer for table '{self.table_name}' started")
+        result_data = {}
+        instance_lst = instance_lst or [None]
+        table_load_dt = tbl_detail_config.get('load_dt', {})
+
+        for instance in instance_lst:
+            self.instance = instance
+            load_dt_for_instance = table_load_dt.get(instance, table_load_dt.get('default', {}))
+
+            base_path = self.get_base_path(self.source_name, instance)
+
+            if full_load:
+                date_folders = self.list_date_folders(base_path, load_dt or load_dt_for_instance, instance)
+
+
+                if not date_folders:
+                    self.tracker.logger.info(f"No date folders found for instance: {instance}.")
+                    continue
+
+                file_found = False
+                for date_folder in date_folders:
+                    matching_files = self.process_files(self.source_name, date_folder, instance)
+                    if matching_files:
+                        self.load_to_bronze(matching_files, date_folder, tbl_detail_config, delete_column,instance)
+                        file_found = True
+                        result_data[instance or self.source_name] = date_folder
+                        break
+                
+                if not file_found:
+                    self.tracker.logger.info(f"No matching files found for source '{self.source_name}' with table '{self.table_name}' in date folder.")
+                    raise FileNotFoundError(f"No matching files found for source '{self.source_name}' with table '{self.table_name}' in any date folder.")
+            
+            #### comes into else for delta processing######
+            else:
+                if not load_dt_for_instance:
+                    self.tracker.logger.info(f"No load_dt found for source '{self.source_name}' and table '{self.table_name}' for incremental load.")
+                    raise ValueError(f"Missing load_dt for source '{self.source_name}' and table '{self.table_name}' for incremental load.")
+
+                incremented_load_dt = DateTimeUtil.increment_date(load_dt_for_instance)
+                date_folders = self.list_date_folders(base_path, incremented_load_dt, instance)
+    
+                for date_folder in date_folders:
+                    matching_files = self.process_files(self.source_name, date_folder, instance)
+                    if matching_files:
+                        self.load_to_bronze(matching_files, date_folder, tbl_detail_config, delete_column,instance)
+                        result_data[instance or self.source_name] = date_folder
+                        
+        self.tracker.stop(f"Loading data to bronze layer for table '{self.table_name}'finished.")
+        return result_data
