@@ -1,4 +1,4 @@
-USE [TNL_RATING]
+USE [*** REDACTED ***]
 GO
 /****** Object:  StoredProcedure [dbo].[USPS_base_rate_audit_master]    Script Date: 3/24/2025 10:38:52 AM ******/
 SET ANSI_NULLS ON
@@ -10,7 +10,7 @@ GO
 
    Description:  USPS_base_rate_audit_master
 
-exec [tnl_rating].[dbo].[USPS_base_rate_audit_master] 274889
+exec [*** REDACTED ***].[dbo].[USPS_base_*** REDACTED ***_master] *** REDACTED ***
 
 ***********************************************************************************************************/
 
@@ -23,7 +23,7 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    DELETE FROM tnl_rating.dbo.usps_base_rate_audit 
+    DELETE FROM *** REDACTED ***.dbo.usps_base_rate_audit 
     WHERE [ControlNo] = @ywControlno;
 
     ;WITH RankedMatches AS (
@@ -35,7 +35,7 @@ BEGIN
             e.entryDTTM,
             CAST(e.entrydttm AS DATE) AS [Shipdate],
             e.[Mail Class] AS [Service], 
-            e.weight, e.length, e.width, e.height,
+            e.weight, e.*** REDACTED ***, e.width, e.height,
             e.Zone AS [Billed_Zone], 
             ((e.length * e.width * e.height)/1728.0) AS [cubic feet],r.PackageIndicator AS [Package Indicator],
             r.Tier,
@@ -46,43 +46,43 @@ BEGIN
             e.amount AS Billed_Amount,		
             r.Rate AS [Contract_Rate],
             CASE 
-                WHEN ROUND((e.amount - r.Rate), 2) IN (0.01, -0.01)
+                WHEN ROUND((e.*** REDACTED *** - r.*** REDACTED ***), 2) IN (0.01, -0.01)
                     THEN 0 
-                ELSE ROUND((e.amount - r.Rate), 2) 
-            END AS [PotentialError]
-        FROM TNL_REGIONAL.dbo.usps_ebill AS e
-        LEFT JOIN TNL_RATING.dbo.usps_rate_master AS r ON  (
+                ELSE ROUND((e.*** REDACTED *** - r.*** REDACTED ***), 2) 
+            END AS [*** REDACTED ***]
+        FROM *** REDACTED ***.dbo.usps_ebill AS e
+        LEFT JOIN *** REDACTED ***.dbo.*** REDACTED *** AS r ON  (
         (
             
 			 -- Match for NonCubic
 			-----"Cubic prices are not based on weight, but are charged based on zone and the mailpiece's cubic measurement..." ---- Explanation for non use of weights. 
 			----- SROUCE : https://pe.usps.com/text/dmm300/223.htm
 
-            r.PackageIndicator = 'NonCubic'
-            AND r.Service = e.[Mail Class]
-            AND r.ChildID = e.ChildID
-            AND r.Zone = e.Zone
-            AND e.EntryDTTM BETWEEN r.EffectiveDate AND r.ExpirationDate
+            *** REDACTED ***
+            *** REDACTED ***
+            *** REDACTED ***
+            *** REDACTED ***
+            AND e.*** REDACTED *** BETWEEN r.*** REDACTED *** AND r.*** REDACTED ***
         )
         OR (
             r.weight = 0 AND r.PackageIndicator = 
                 CASE 
-                    WHEN ((e.length * e.width * e.height)/1728.0) <= 0.10 THEN 'Cubic Tier 1 (0.00 - 0.10)'
-                    WHEN ((e.length * e.width * e.height)/1728.0) <= 0.20 THEN 'Cubic Tier 2 (0.10 - 0.20)'
-                    WHEN ((e.length * e.width * e.height)/1728.0) <= 0.30 THEN 'Cubic Tier 3 (0.20 - 0.30)'
-                    WHEN ((e.length * e.width * e.height)/1728.0) <= 0.40 THEN 'Cubic Tier 4 (0.30 - 0.40)'
-                    WHEN ((e.length * e.width * e.height)/1728.0) <= 0.50 THEN 'Cubic Tier 5 (0.40 - 0.50)'
-                    WHEN ((e.length * e.width * e.height)/1728.0) <= 0.60 THEN 'Cubic Tier 6 (0.50 - 0.60)'
-                    WHEN ((e.length * e.width * e.height)/1728.0) <= 0.70 THEN 'Cubic Tier 7 (0.60 - 0.70)'
-                    WHEN ((e.length * e.width * e.height)/1728.0) <= 0.80 THEN 'Cubic Tier 8 (0.70 - 0.80)'
-                    WHEN ((e.length * e.width * e.height)/1728.0) <= 0.90 THEN 'Cubic Tier 9 (0.80 - 0.90)'
-                    WHEN ((e.length * e.width * e.height)/1728.0) <= 1.00 THEN 'Cubic Tier 10 (0.90 - 1.00)'
+                    WHEN ((e.*** REDACTED *** * e.width * e.height)/1728.0) <= 0.10 THEN 'Cubic Tier 1 (0.00 - 0.10)'
+                    WHEN ((e.*** REDACTED *** * e.width * e.height)/1728.0) <= 0.20 THEN 'Cubic Tier 2 (0.10 - 0.20)'
+                    WHEN ((e.*** REDACTED *** * e.width * e.height)/1728.0) <= 0.30 THEN 'Cubic Tier 3 (0.20 - 0.30)'
+                    WHEN ((e.*** REDACTED *** * e.width * e.height)/1728.0) <= 0.40 THEN 'Cubic Tier 4 (0.30 - 0.40)'
+                    WHEN ((e.*** REDACTED *** * e.width * e.height)/1728.0) <= 0.50 THEN 'Cubic Tier 5 (0.40 - 0.50)'
+                    WHEN ((e.*** REDACTED *** * e.width * e.height)/1728.0) <= 0.60 THEN 'Cubic Tier 6 (0.50 - 0.60)'
+                    WHEN ((e.*** REDACTED *** * e.width * e.height)/1728.0) <= 0.70 THEN 'Cubic Tier 7 (0.60 - 0.70)'
+                    WHEN ((e.*** REDACTED *** * e.width * e.height)/1728.0) <= 0.80 THEN 'Cubic Tier 8 (0.70 - 0.80)'
+                    WHEN ((e.*** REDACTED *** * e.width * e.height)/1728.0) <= 0.90 THEN 'Cubic Tier 9 (0.80 - 0.90)'
+                    WHEN ((e.*** REDACTED *** * e.width * e.height)/1728.0) <= 1.00 THEN 'Cubic Tier 10 (0.90 - 1.00)'
                 END
         )
         OR (
             -- packages (weight 0, PackageIndicator matches these types)
-            r.weight = 0
-            AND r.PackageIndicator IN (
+            *** REDACTED *** = 0
+            AND r.*** REDACTED *** IN (
                 'Flat-Rate Envelope',
                 'Large Flat-Rate Box',
                 'Legal Flat-Rate Envelope',
@@ -93,12 +93,12 @@ BEGIN
             )
         )
     )
-        AND e.[Mail Class] = r.Service
-        AND e.ChildID = r.ChildID
-        AND e.entryDTTM >= r.Effectivedate 
-        AND e.entryDTTM <= r.Expirationdate
-        AND e.transactiontype = 'POSTAGE PRINT'
-        AND e.zone = r.zone
+        AND e.[*** REDACTED *** Class] = r.*** REDACTED ***
+        AND e.*** REDACTED *** = r.*** REDACTED ***
+        AND e.*** REDACTED *** >= r.Effectivedate 
+        AND e.*** REDACTED *** <= r.*** REDACTED ***
+        AND e.*** REDACTED *** = 'POSTAGE PRINT'
+        AND e.*** REDACTED *** = r.*** REDACTED ***
         WHERE 
            
              e.controlno = @ywControlno
@@ -107,7 +107,7 @@ BEGIN
             )
     
 
-    INSERT INTO tnl_rating.dbo.usps_base_rate_audit (
+    INSERT INTO *** REDACTED ***.dbo.usps_base_rate_audit (
         childid, [Tracking number], transactiontype, controlno, entryDTTM, Shipdate,
         [Service], weight, length, width, height, [Billed_Zone], [cubic feet],[Package Indicator],
         Tier, RN, Billed_Amount, [Contract_Rate], [PotentialError]
@@ -123,7 +123,7 @@ END;
 
 
 -- Set IsRated = 1 only for rows with Contract Rate
-UPDATE tnl_rating.dbo.usps_base_rate_audit
+UPDATE *** REDACTED ***.dbo.usps_base_rate_audit
 SET IsRated = 1
 WHERE controlno = @ywControlno
 AND [Contract_Rate] IS NOT NULL;
